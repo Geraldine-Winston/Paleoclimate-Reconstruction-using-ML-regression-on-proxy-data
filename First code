@@ -1,0 +1,72 @@
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, r2_score
+
+# Create Synthetic Proxy Data (example simulation)
+def generate_synthetic_proxy_data(n_samples=1000):
+    np.random.seed(42)
+    # Simulated proxy variables (e.g., isotope ratios, pollen %, sediment properties)
+    isotope_ratio = np.random.uniform(-5, 5, n_samples)   # δ18O or δ13C proxy
+    pollen_index = np.random.uniform(0, 100, n_samples)   # Pollen abundance
+    sediment_density = np.random.uniform(2.0, 3.0, n_samples) # g/cm³
+    magnetic_susceptibility = np.random.uniform(0, 1000, n_samples)  # SI units
+    
+    # Target: Temperature (°C)
+    temperature = (
+        15 - 0.8 * isotope_ratio 
+        + 0.05 * pollen_index 
+        - 1.2 * (sediment_density - 2.5)
+        + 0.001 * magnetic_susceptibility
+        + np.random.normal(0, 1, n_samples)  # Add some noise
+    )
+    
+    df = pd.DataFrame({
+        'Isotope_Ratio': isotope_ratio,
+        'Pollen_Index': pollen_index,
+        'Sediment_Density': sediment_density,
+        'Magnetic_Susceptibility': magnetic_susceptibility,
+        'Temperature': temperature
+    })
+    
+    return df
+
+# Generate Data
+df = generate_synthetic_proxy_data()
+
+# Features and Target
+X = df.drop(columns=['Temperature'])
+y = df['Temperature']
+
+# Standardize Features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Train/Test Split
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+# Model
+model = RandomForestRegressor(n_estimators=200, random_state=42)
+model.fit(X_train, y_train)
+
+# Predictions
+y_pred = model.predict(X_test)
+
+# Evaluation
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+print(f"Test MSE: {mse:.4f}")
+print(f"Test R² Score: {r2:.4f}")
+
+# Save Data and Model (optional for further use)
+df.to_excel('proxy_climate_data.xlsx', index=False)
+import joblib
+joblib.dump(model, 'paleoclimate_rf_model.pkl')
+
+# Example Reconstruction
+example_proxy = np.array([[-2.1, 40, 2.7, 800]])  # A hypothetical sample
+example_proxy_scaled = scaler.transform(example_proxy)
+reconstructed_temp = model.predict(example_proxy_scaled)
+print(f"Reconstructed Temperature (example sample): {reconstructed_temp[0]:.2f} °C")
